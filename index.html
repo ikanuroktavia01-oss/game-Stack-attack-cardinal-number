@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Stack Attack Angka Ceria</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            touch-action: none; /* Prevent scroll on touch */
+            overflow: hidden;
+            background-color: #87CEEB; /* Sky blue */
+        }
+        .font-fredoka {
+            font-family: 'Fredoka One', cursive;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* Efek Tombol 3D */
+        .btn-3d {
+            box-shadow: 0 8px 0 #0f766e;
+            transition: all 0.1s;
+        }
+        .btn-3d:active {
+            box-shadow: 0 0px 0 #0f766e;
+            transform: translateY(8px);
+        }
+        .btn-3d-red {
+            box-shadow: 0 8px 0 #b91c1c;
+            transition: all 0.1s;
+        }
+        .btn-3d-red:active {
+            box-shadow: 0 0px 0 #b91c1c;
+            transform: translateY(8px);
+        }
+        
+        /* Animasi Custom untuk Layar Depan */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float-delayed {
+            0%, 100% { transform: translateY(0) rotate(10deg); }
+            50% { transform: translateY(-25px) rotate(-10deg); }
+        }
+        .animate-float-delayed {
+            animation: float-delayed 4.5s ease-in-out infinite;
+        }
+        @keyframes float-cloud {
+            0% { transform: translateX(0); }
+            50% { transform: translateX(30px); }
+            100% { transform: translateX(0); }
+        }
+        .animate-cloud {
+            animation: float-cloud 8s ease-in-out infinite;
+        }
+        
+        /* Teks Stroke Custom */
+        .text-stroke {
+            -webkit-text-stroke: 2px white;
+        }
+        .text-stroke-dark {
+            -webkit-text-stroke: 3px #1e3a8a;
+        }
+    </style>
+</head>
+<body class="bg-blue-300 w-screen h-screen flex justify-center items-center select-none">
+
+    <!-- Container Game Utama -->
+    <div class="relative w-full h-full max-w-lg mx-auto bg-gradient-to-b from-blue-300 to-green-200 overflow-hidden shadow-2xl flex flex-col">
+        
+        <!-- Header / UI Atas -->
+        <div id="gameUI" class="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-10 hidden pointer-events-none">
+            <!-- Nyawa -->
+            <div class="flex space-x-1" id="heartsContainer">
+                <!-- Hati diisi via JS -->
+            </div>
+            <!-- Progress Target -->
+            <div class="bg-white/80 rounded-full px-4 py-1 border-4 border-yellow-400 font-fredoka text-xl text-yellow-600 shadow-md">
+                Angka: <span id="currentLevelText">1</span>/10
+            </div>
+        </div>
+
+        <!-- Popups (Bagus! / Ding / Tuing) -->
+        <div id="popupText" class="absolute top-1/4 w-full text-center z-20 pointer-events-none opacity-0 transition-opacity duration-300">
+            <span id="popupMessage" class="font-fredoka text-4xl text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)] text-stroke">Sempurna!</span>
+            <div id="popupObjects" class="flex justify-center gap-2 mt-4 text-4xl drop-shadow-md">
+                <!-- Emoji objek muncul di sini -->
+            </div>
+        </div>
+
+        <!-- Canvas Game -->
+        <div class="flex-grow relative min-h-[360px]">
+            <canvas id="gameCanvas"></canvas>
+            
+            <!-- Awan Latar Belakang (Hiasan CSS) -->
+            <svg class="absolute top-10 left-5 w-24 opacity-60 animate-cloud pointer-events-none" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M17.5 19C19.9853 19 22 16.9853 22 14.5C22 12.1325 20.1783 10.1948 17.8648 10.0166C17.4363 6.6346 14.5516 4 11 4C7.13401 4 4 7.13401 4 11C4 11.2338 4.01146 11.4648 4.03366 11.6923C2.28589 12.1953 1 13.7915 1 15.75C1 18.0972 2.90278 20 5.25 20L17.5 19Z"/></svg>
+            <svg class="absolute top-24 right-5 w-16 opacity-50 animate-cloud pointer-events-none" style="animation-delay: 2s; animation-duration: 10s;" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M17.5 19C19.9853 19 22 16.9853 22 14.5C22 12.1325 20.1783 10.1948 17.8648 10.0166C17.4363 6.6346 14.5516 4 11 4C7.13401 4 4 7.13401 4 11C4 11.2338 4.01146 11.4648 4.03366 11.6923C2.28589 12.1953 1 13.7915 1 15.75C1 18.0972 2.90278 20 5.25 20L17.5 19Z"/></svg>
+        </div>
+
+        <!-- Tombol Kontrol Bawah (Besar & Ramah Anak) -->
+        <div id="controlsUI" class="h-32 bg-green-400 border-t-8 border-green-500 flex justify-center items-center hidden relative z-20">
+            <!-- Rumput Hiasan -->
+            <div class="absolute -top-4 w-full flex justify-between px-2 text-green-600 opacity-50 pointer-events-none text-2xl">
+                🌿 🌾 🌿 🌾 🌿
+            </div>
+            
+            <button id="btnDrop" class="btn-3d bg-teal-500 hover:bg-teal-400 text-white w-3/4 max-w-sm py-4 rounded-3xl font-fredoka text-4xl flex items-center justify-center gap-4 cursor-pointer">
+                <span>JATUHKAN!</span>
+                <span class="text-5xl">👇</span>
+            </button>
+        </div>
+
+        <!-- LAYAR AWAL (MAIN MENU) -->
+        <div id="startScreen" class="absolute inset-0 bg-gradient-to-b from-cyan-300 via-blue-400 to-purple-500 z-50 flex flex-col items-center justify-center p-6 overflow-hidden">
+            
+            <!-- Hiasan Belakang Layar Awal -->
+            <!-- Awan -->
+            <svg class="absolute top-12 left-4 w-20 opacity-80 animate-cloud pointer-events-none" viewBox="0 0 24 24" fill="white"><path d="M17.5 19C19.9853 19 22 16.9853 22 14.5C22 12.1325 20.1783 10.1948 17.8648 10.0166C17.4363 6.6346 14.5516 4 11 4C7.13401 4 4 7.13401 4 11C4 11.2338 4.01146 11.4648 4.03366 11.6923C2.28589 12.1953 1 13.7915 1 15.75C1 18.0972 2.90278 20 5.25 20L17.5 19Z"/></svg>
+            <svg class="absolute top-24 right-6 w-24 opacity-60 animate-cloud pointer-events-none" style="animation-delay: -3s; animation-duration: 12s;" viewBox="0 0 24 24" fill="white"><path d="M17.5 19C19.9853 19 22 16.9853 22 14.5C22 12.1325 20.1783 10.1948 17.8648 10.0166C17.4363 6.6346 14.5516 4 11 4C7.13401 4 4 7.13401 4 11C4 11.2338 4.01146 11.4648 4.03366 11.6923C2.28589 12.1953 1 13.7915 1 15.75C1 18.0972 2.90278 20 5.25 20L17.5 19Z"/></svg>
+            
+            <!-- Balok Angka Melayang -->
+            <div class="absolute top-32 left-10 w-16 h-16 bg-red-500 rounded-xl border-4 border-red-700 flex items-center justify-center font-fredoka text-white text-3xl shadow-lg animate-float-delayed transform -rotate-12 pointer-events-none">
+                1
+            </div>
+            <div class="absolute bottom-40 right-10 w-20 h-20 bg-yellow-400 rounded-xl border-4 border-yellow-600 flex items-center justify-center font-fredoka text-white text-4xl shadow-lg animate-float transform rotate-12 pointer-events-none">
+                3
+            </div>
+            <div class="absolute top-48 right-12 w-14 h-14 bg-green-500 rounded-xl border-4 border-green-700 flex items-center justify-center font-fredoka text-white text-2xl shadow-lg animate-float-delayed" style="animation-delay: -2s;">
+                2
+            </div>
+
+            <!-- Judul Game -->
+            <div class="text-center z-10 mb-8 mt-10 animate-float">
+                <h1 class="font-fredoka text-6xl md:text-7xl text-yellow-300 text-stroke-dark drop-shadow-[0_8px_8px_rgba(0,0,0,0.5)] transform -rotate-2">
+                    STACK
+                </h1>
+                <h1 class="font-fredoka text-6xl md:text-7xl text-pink-400 text-stroke-dark drop-shadow-[0_8px_8px_rgba(0,0,0,0.5)] transform rotate-2 -mt-2">
+                    ATTACK
+                </h1>
+                <h2 class="font-bold text-3xl md:text-4xl text-white mt-4 drop-shadow-md text-stroke border-blue-900">
+                    Angka Ceria 🌟
+                </h2>
+            </div>
+
+            <!-- Maskot Robot Besar -->
+            <div class="relative w-48 h-48 md:w-56 md:h-56 mb-10 z-10 animate-float">
+                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-2xl">
+                    <!-- Antenna -->
+                    <line x1="100" y1="50" x2="100" y2="20" stroke="#718096" stroke-width="6" stroke-linecap="round"/>
+                    <circle cx="100" cy="15" r="10" fill="#F6E05E" class="animate-pulse"/>
+                    <!-- Head -->
+                    <rect x="50" y="50" width="100" height="80" rx="25" fill="#E2E8F0" stroke="#4A5568" stroke-width="6"/>
+                    <!-- Eyes -->
+                    <circle cx="75" cy="80" r="14" fill="white" stroke="#4A5568" stroke-width="4"/>
+                    <circle cx="125" cy="80" r="14" fill="white" stroke="#4A5568" stroke-width="4"/>
+                    <!-- Pupils -->
+                    <circle cx="75" cy="80" r="6" fill="#1A202C"/>
+                    <circle cx="125" cy="80" r="6" fill="#1A202C"/>
+                    <!-- Smile (Happy) -->
+                    <path d="M 70 105 Q 100 125 130 105" fill="none" stroke="#F56565" stroke-width="6" stroke-linecap="round"/>
+                    <!-- Blushes -->
+                    <circle cx="60" cy="95" r="8" fill="#FEB2B2" opacity="0.8"/>
+                    <circle cx="140" cy="95" r="8" fill="#FEB2B2" opacity="0.8"/>
+                    <!-- Body -->
+                    <rect x="70" y="130" width="60" height="50" rx="15" fill="#A0AEC0" stroke="#4A5568" stroke-width="6"/>
+                    <rect x="85" y="145" width="30" height="20" rx="5" fill="#48BB78"/>
+                    <!-- Arms -->
+                    <path d="M 70 145 Q 40 140 30 110" fill="none" stroke="#A0AEC0" stroke-width="10" stroke-linecap="round"/>
+                    <path d="M 130 145 Q 160 140 170 110" fill="none" stroke="#A0AEC0" stroke-width="10" stroke-linecap="round"/>
+                </svg>
+            </div>
+
+            <!-- Tombol Mulai -->
+            <button id="btnStartGame" class="z-10 btn-3d bg-yellow-400 hover:bg-yellow-300 text-red-600 font-fredoka text-4xl px-12 py-5 rounded-full border-4 border-white animate-bounce cursor-pointer">
+                Mulai Main! ▶
+            </button>
+        </div>
+
+        <!-- LAYAR GAME OVER / MENANG -->
+        <div id="endScreen" class="absolute inset-0 bg-black/80 z-40 hidden flex flex-col items-center justify-center p-4">
+            <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl transform scale-110">
+                <h2 id="endTitle" class="font-fredoka text-5xl mb-4 text-red-500">Yah, Jatuh!</h2>
+                
+                <!-- Maskot Sedih / Senang di akhir -->
+                <div id="endMascot" class="w-32 h-32 mx-auto mb-4">
+                    <!-- SVG disuntikkan via JS -->
+                </div>
+
+                <p id="endDesc" class="font-bold text-xl text-gray-600 mb-6">Ayo coba susun angkanya lebih hati-hati!</p>
+                <div class="flex justify-center space-x-2 text-3xl mb-6">
+                    ⭐ ⭐ ⭐
+                </div>
+                <button id="btnRestart" class="btn-3d bg-blue-500 hover:bg-blue-400 text-white font-fredoka text-2xl w-full py-4 rounded-2xl cursor-pointer">
+                    Main Lagi! 🔄
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AUDIO SINTESIS SEDERHANA -->
+    <script>
+        // --- SISTEM SUARA (Web Audio API) ---
+        const AudioController = {
+            ctx: null,
+            bgmInterval: null,
+            init: function() {
+                if(this.ctx) return;
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                } catch (e) {
+                    console.warn("Audio dilarang oleh browser pada environment ini.", e);
+                }
+            },
+            playTone: function(frequency, type, duration, vol = 0.5) {
+                if(!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gainNode = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(frequency, this.ctx.currentTime);
+                    
+                    gainNode.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                    
+                    osc.connect(gainNode);
+                    gainNode.connect(this.ctx.destination);
+                    
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) {}
+            },
+            startBGM: function() {
+                if(this.bgmInterval) return;
+                if(!this.ctx) this.init();
+                
+                // Melodi latar belakang yang ceria (C Major Pentatonic)
+                const notes = [392.00, 329.63, 261.63, 329.63, 392.00, 523.25, 392.00, 329.63];
+                let idx = 0;
+                
+                this.bgmInterval = setInterval(() => {
+                    // Volume sangat kecil (0.03) agar tidak mengganggu efek suara utama (Ding/Tuing)
+                    if(gameState === 'playing') {
+                        this.playTone(notes[idx], 'triangle', 0.2, 0.03); 
+                        idx = (idx + 1) % notes.length;
+                    }
+                }, 350); // Kecepatan tempo alunan nada
+            },
+            stopBGM: function() {
+                if(this.bgmInterval) {
+                    clearInterval(this.bgmInterval);
+                    this.bgmInterval = null;
+                }
+            },
+            playDing: function() {
+                // Suara berhasil (Ding lonceng)
+                if(!this.ctx) this.init();
+                this.playTone(880, 'sine', 0.1, 0.6);
+                setTimeout(() => this.playTone(1100, 'sine', 0.3, 0.6), 100);
+            },
+            playTuing: function() {
+                // Suara salah (Tuing Tuing meleset)
+                if(!this.ctx) this.init();
+                
+                try {
+                    // Membuat suara efek pegas (spring/tuing)
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                    // Meluncur ke bawah (pitch drop)
+                    osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.3);
+                    
+                    gain.gain.setValueAtTime(0.6, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                    
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.3);
+
+                    // Tuing kedua agak terlambat dan lebih rendah
+                    setTimeout(() => {
+                        const osc2 = this.ctx.createOscillator();
+                        const gain2 = this.ctx.createGain();
+                        osc2.type = 'sawtooth';
+                        osc2.frequency.setValueAtTime(200, this.ctx.currentTime);
+                        osc2.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.4);
+                        gain2.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                        gain2.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+                        osc2.connect(gain2);
+                        gain2.connect(this.ctx.destination);
+                        osc2.start();
+                        osc2.stop(this.ctx.currentTime + 0.4);
+                    }, 150);
+
+                } catch(e) {}
+            }
+        };
+
+        // --- KONFIGURASI GAME ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Data balok & edukasi (Angka berpasangan 1 sampai 10)
+        // Array akan berisi [1,1, 2,2, 3,3, ... 10,10]
+        const learningSequence = [];
+        for(let i = 1; i <= 10; i++) {
+            learningSequence.push(i);
+            learningSequence.push(i);
+        }
+        
+        // Warna balok yang menarik
+        const colors = [
+            '#EF4444', // 1 Merah
+            '#F59E0B', // 2 Oranye
+            '#FBBF24', // 3 Kuning
+            '#10B981', // 4 Hijau
+            '#3B82F6', // 5 Biru
+            '#6366F1', // 6 Indigo
+            '#8B5CF6', // 7 Ungu
+            '#EC4899', // 8 Pink
+            '#14B8A6', // 9 Teal
+            '#84CC16'  // 10 Lime
+        ];
+        
+        // Emoji untuk representasi visual
+        const emojis = ['🍎', '🎈', '⭐', '🚗', '🐶', '🌸', '🍓', '🦋', '🐥', '🍬'];
+
+        // Variabel Status Game
+        let gameState = 'start'; // start, playing, gameover, win
+        let animationId;
+        
+        // Konfigurasi Area Main
+        let cw, ch;
+        const blockW = 80;
+        const blockH = 80;
+        const groundHeight = 60;
+        
+        // Kamera / Scroll
+        let cameraX = 0; 
+        const targetPaddingLeft = 40; // Padding kiri
+
+        // Objek Game
+        let blocks = []; // Balok yang sudah diletakkan
+        let currentBlock = null; // Balok yang sedang bergerak
+        
+        let blockSpeed = 1.5; // KECEPATAN MONDAR-MANDIR DIPERLAMBAT
+        let dropSpeed = 7;    // KECEPATAN JATUH DIPERLAMBAT
+        
+        let lives = 3;
+        let blockIndex = 0; // Index dari sequence (0 sampai 19)
+        let isWaitingNextBlock = false; // FLAG untuk mencegah salah deteksi saat transisi
+        
+        // Resize Handler
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            cw = canvas.width;
+            ch = canvas.height;
+            if(gameState === 'playing') drawScene();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- SISTEM OBJEK BALOK ---
+        class Block {
+            constructor(number, isTarget = false, targetX = 0, targetY = 0) {
+                this.number = number;
+                this.color = colors[number - 1];
+                this.w = blockW;
+                this.h = blockH;
+                this.isTarget = isTarget;
+                
+                if (isTarget) {
+                    this.x = targetX;
+                    this.y = targetY;
+                } else {
+                    // Balok bergerak mondar-mandir
+                    this.y = ch - groundHeight - (blockH * 4.5); // Mulai cukup tinggi
+                    this.x = cameraX; // Mulai dari tepi kiri layar yang terlihat
+                    this.direction = 1;
+                    this.isDropping = false;
+                }
+            }
+
+            update() {
+                if (this.isTarget) return;
+
+                if (!this.isDropping) {
+                    // Mondar mandir relatif terhadap layar
+                    this.x += blockSpeed * this.direction;
+                    if (this.x > cameraX + cw - this.w) {
+                        this.x = cameraX + cw - this.w;
+                        this.direction = -1;
+                    } else if (this.x < cameraX) {
+                        this.x = cameraX;
+                        this.direction = 1;
+                    }
+                } else {
+                    // Jatuh ke bawah
+                    this.y += dropSpeed;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x - cameraX, this.y); // Geser gambar sesuai kamera
+                
+                if (this.isTarget) {
+                    // Gambar Target Transparan (Bayangan Garis Putus-putus)
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+                    ctx.fillRect(0, 0, this.w, this.h);
+                    ctx.setLineDash([5, 5]);
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = "rgba(0, 0, 0, 0.2)";
+                    ctx.strokeRect(0, 0, this.w, this.h);
+                    
+                    // Angka transparan
+                    ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+                    ctx.font = "bold 40px 'Fredoka One'";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(this.number, this.w/2, this.h/2);
+                } else {
+                    // Gambar Balok Nyata
+                    // Border / Bayangan 3D
+                    ctx.fillStyle = '#000';
+                    ctx.beginPath();
+                    ctx.roundRect(2, 4, this.w, this.h, 12);
+                    ctx.fill();
+                    
+                    // Main body
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.roundRect(0, 0, this.w, this.h, 12);
+                    ctx.fill();
+
+                    // Shine effect (Glossy)
+                    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                    ctx.beginPath();
+                    ctx.roundRect(0, 0, this.w, this.h/3, [12, 12, 0, 0]);
+                    ctx.fill();
+
+                    // Number
+                    ctx.fillStyle = 'white';
+                    ctx.font = "bold 40px 'Fredoka One'";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    // Teks bayangan
+                    ctx.shadowColor = "rgba(0,0,0,0.4)";
+                    ctx.shadowBlur = 4;
+                    ctx.shadowOffsetX = 2;
+                    ctx.shadowOffsetY = 2;
+                    ctx.fillText(this.number, this.w/2, this.h/2);
+                }
+                
+                ctx.restore();
+            }
+        }
+
+        // --- LOGIKA PERMAINAN BARU (HORIZONTAL SUSUNAN BERPASANGAN) ---
+        let targetBlock = null;
+
+        function getTargetPosition(index) {
+            // Urutan index: 0, 1 (angka 1). 2, 3 (angka 2). dst.
+            // Posisi X bertambah setiap 2 index (setiap berganti angka).
+            let groupIndex = Math.floor(index / 2); // 0, 0, 1, 1, 2, 2...
+            
+            // Dibuat sejajar rapat tanpa jarak agar terlihat rapi dan menempel sempurna
+            let targetX = targetPaddingLeft + (groupIndex * blockW); 
+            
+            // Posisi Y: Jika index genap (0,2,4) di bawah, jika ganjil (1,3,5) di atasnya
+            let isTop = (index % 2 !== 0);
+            let targetY = ch - groundHeight - blockH; // Dasar
+            if (isTop) {
+                targetY -= blockH; // Naik satu tingkat
+            }
+            
+            return { x: targetX, y: targetY };
+        }
+
+        function spawnNextBlock() {
+            if (blockIndex >= learningSequence.length) {
+                gameWin();
+                return;
+            }
+
+            let num = learningSequence[blockIndex];
+            
+            // Hitung posisi target yang benar
+            let tPos = getTargetPosition(blockIndex);
+            targetBlock = new Block(num, true, tPos.x, tPos.y);
+            
+            // Spawn balok yang bergerak
+            currentBlock = new Block(num);
+            
+            // Update UI Angka
+            document.getElementById('currentLevelText').innerText = num;
+            
+            // Kamera bergeser agar target selalu terlihat (di tengah layar jika mungkin)
+            let desiredCameraX = tPos.x - (cw / 2) + (blockW / 2);
+            if (desiredCameraX < 0) desiredCameraX = 0; // Jangan geser terlalu jauh ke kiri
+            cameraX = desiredCameraX;
+            
+            isWaitingNextBlock = false; // Reset flag karena balok baru sudah muncul
+        }
+
+        function dropBlock() {
+            if (gameState === 'playing' && currentBlock && !currentBlock.isDropping && !isWaitingNextBlock) {
+                currentBlock.isDropping = true;
+            }
+        }
+
+        // Event Listeners (Diganti ke pointerdown agar lebih responsif untuk touch/mouse)
+        document.getElementById('btnStartGame').addEventListener('pointerdown', startGame);
+        document.getElementById('btnRestart').addEventListener('pointerdown', startGame);
+        
+        // Klik tombol Drop
+        const btnDrop = document.getElementById('btnDrop');
+        btnDrop.addEventListener('pointerdown', (e) => {
+            e.preventDefault(); // Mencegah double trigger di mobile
+            btnDrop.classList.add('bg-teal-600');
+            dropBlock();
+            setTimeout(() => btnDrop.classList.remove('bg-teal-600'), 150);
+        });
+
+        // Klik layar langsung (di mana saja) juga bisa jatuhkan balok
+        canvas.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            dropBlock();
+        });
+
+
+        // --- GAMELOOP & LOGIKA FISIKA ---
+        function checkCollision() {
+            if (isWaitingNextBlock) return; // JANGAN periksa tabrakan jika sedang menunggu balok baru
+
+            // Balok sedang jatuh
+            if (currentBlock && currentBlock.isDropping) {
+                
+                // Cek apakah balok sudah mencapai atau melewati garis Y dari Target
+                if (currentBlock.y >= targetBlock.y) {
+                    
+                    // Hitung seberapa pas X-nya dengan target
+                    let diffX = Math.abs(currentBlock.x - targetBlock.x);
+                    let tolerance = blockW * 0.6; // Toleransi meleset 60% dari lebar balok
+
+                    if (diffX < tolerance) {
+                        // BERHASIL PAS!
+                        // Paskan posisinya secara sempurna
+                        currentBlock.x = targetBlock.x;
+                        currentBlock.y = targetBlock.y;
+                        currentBlock.isDropping = false;
+                        
+                        // Masukkan ke array blok permanen
+                        blocks.push(currentBlock);
+                        
+                        showSuccessPopup(currentBlock.number);
+                        AudioController.playDing(); // Efek Suara Benar
+                        
+                        // Set FLAG sedang menunggu, agar frame berikutnya tidak men-trigger Game Over
+                        isWaitingNextBlock = true;
+                        
+                        // Lanjut ke blok berikutnya
+                        blockIndex++;
+                        
+                        // Jeda sejenak sebelum balok baru muncul
+                        setTimeout(() => {
+                            spawnNextBlock();
+                        }, 800);
+
+                    } else {
+                        // GAGAL MELESET / JATUH!
+                        AudioController.playTuing(); // Efek Suara Salah / Lucu
+                        loseGame();
+                    }
+                }
+            }
+        }
+
+        function drawScene() {
+            if (gameState !== 'playing') return;
+
+            // Bersihkan kanvas (Latar Belakang transparan untuk membiarkan CSS Gradient terlihat)
+            ctx.clearRect(0, 0, cw, ch);
+
+            // Gambar Tanah yang panjang mengikuti kamera
+            ctx.fillStyle = '#4ADE80'; // Hijau tanah
+            // Gambar tanah lebih panjang dari layar
+            ctx.fillRect(0, ch - groundHeight, cw, groundHeight);
+            ctx.fillStyle = '#22C55E'; // Rumput atas
+            ctx.fillRect(0, ch - groundHeight, cw, 10);
+
+            // Gambar target bayangan
+            if (targetBlock) {
+                targetBlock.draw();
+            }
+
+            // Gambar balok-balok yang sudah menumpuk
+            blocks.forEach(b => b.draw());
+
+            // Gambar balok yang sedang aktif
+            if (currentBlock && !isWaitingNextBlock) {
+                currentBlock.draw();
+            }
+
+            // Robot Pemandu Kecil di pojok layar
+            drawMascot();
+        }
+
+        function drawMascot() {
+            // Gambar Robot Kecil di pojok kiri bawah (Statis di layar, tidak ikut geser kamera)
+            const mX = 20;
+            const mY = ch - groundHeight - 60;
+            
+            ctx.save();
+            ctx.translate(mX, mY);
+            
+            // Robot SVG Sederhana dengan Canvas API
+            ctx.fillStyle = '#E2E8F0';
+            ctx.beginPath(); ctx.roundRect(10, 10, 40, 30, 5); ctx.fill(); // Kepala
+            ctx.fillStyle = '#4A5568';
+            ctx.fillRect(30, 0, 2, 10); // Antena
+            ctx.fillStyle = '#F6E05E';
+            ctx.beginPath(); ctx.arc(31, -2, 4, 0, Math.PI*2); ctx.fill(); // Lampu
+            
+            // Mata
+            ctx.fillStyle = 'white';
+            ctx.beginPath(); ctx.arc(20, 22, 6, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(40, 22, 6, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = 'black';
+            ctx.beginPath(); ctx.arc(20, 22, 2, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(40, 22, 2, 0, Math.PI*2); ctx.fill();
+            
+            ctx.restore();
+        }
+
+        function gameLoop() {
+            if (gameState === 'playing') {
+                if (currentBlock) currentBlock.update();
+                checkCollision();
+                drawScene();
+                animationId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // --- MANAJEMEN UI & POPUPS ---
+        function updateHearts() {
+            const hc = document.getElementById('heartsContainer');
+            hc.innerHTML = '';
+            for(let i=0; i<3; i++) {
+                if(i < lives) {
+                    hc.innerHTML += `<span class="text-3xl text-red-500 drop-shadow-md">❤️</span>`;
+                } else {
+                    hc.innerHTML += `<span class="text-3xl text-gray-400 opacity-50">🖤</span>`;
+                }
+            }
+        }
+
+        function showSuccessPopup(num) {
+            const popup = document.getElementById('popupText');
+            const msg = document.getElementById('popupMessage');
+            const objs = document.getElementById('popupObjects');
+            
+            const words = ["Bagus!", "Pintar!", "Hebat!", "Yeyy!"];
+            msg.innerText = words[Math.floor(Math.random() * words.length)];
+            
+            // Warna teks sesuai angka
+            msg.style.color = colors[num-1];
+
+            // Tampilkan emoji sejumlah angka
+            let emoji = emojis[num-1];
+            let str = "";
+            for(let i=0; i<num; i++) str += emoji;
+            objs.innerHTML = str;
+
+            popup.classList.remove('opacity-0');
+            popup.classList.add('animate-bounce');
+            
+            setTimeout(() => {
+                popup.classList.add('opacity-0');
+                popup.classList.remove('animate-bounce');
+            }, 1200);
+        }
+
+        function startGame() {
+            AudioController.init(); // Inisialisasi audio setelah interaksi user
+            AudioController.startBGM(); // Mulai musik latar ceria
+            
+            resizeCanvas();
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('endScreen').classList.add('hidden');
+            document.getElementById('gameUI').classList.remove('hidden');
+            document.getElementById('controlsUI').classList.remove('hidden');
+
+            // Reset Variabel
+            blocks = [];
+            lives = 3;
+            blockIndex = 0;
+            cameraX = 0;
+            blockSpeed = 1.2; // Kecepatan super lambat & santai
+            gameState = 'playing';
+            isWaitingNextBlock = false;
+
+            updateHearts();
+            spawnNextBlock();
+            
+            if(animationId) cancelAnimationFrame(animationId);
+            gameLoop();
+        }
+
+        function loseGame() {
+            AudioController.stopBGM(); // Hentikan musik latar
+            
+            // Karena aturan baru: "Mati Otomatis jika meleset", langsung game over.
+            lives = 0;
+            updateHearts();
+            gameState = 'gameover';
+            
+            document.getElementById('gameUI').classList.add('hidden');
+            document.getElementById('controlsUI').classList.add('hidden');
+            document.getElementById('endScreen').classList.remove('hidden');
+            
+            document.getElementById('endTitle').innerText = "Yah, Meleset!";
+            document.getElementById('endTitle').className = "font-fredoka text-5xl mb-4 text-red-500";
+            document.getElementById('endDesc').innerText = "Ayo kita coba susun angkanya lagi dengan hati-hati!";
+            
+            // Maskot Sedih SVG
+            document.getElementById('endMascot').innerHTML = `
+                <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-md">
+                    <rect x="25" y="25" width="50" height="40" rx="10" fill="#E2E8F0" stroke="#4A5568" stroke-width="3"/>
+                    <!-- Mata Silang (Kalah) -->
+                    <path d="M 35 35 L 45 45 M 45 35 L 35 45" stroke="#1A202C" stroke-width="4" stroke-linecap="round"/>
+                    <path d="M 55 35 L 65 45 M 65 35 L 55 45" stroke="#1A202C" stroke-width="4" stroke-linecap="round"/>
+                    <!-- Mulut Sedih -->
+                    <path d="M 40 55 Q 50 45 60 55" fill="none" stroke="#F56565" stroke-width="3" stroke-linecap="round"/>
+                </svg>`;
+        }
+
+        function gameWin() {
+            AudioController.stopBGM(); // Hentikan musik latar
+
+            gameState = 'win';
+            document.getElementById('gameUI').classList.add('hidden');
+            document.getElementById('controlsUI').classList.add('hidden');
+            document.getElementById('endScreen').classList.remove('hidden');
+            
+            document.getElementById('endTitle').innerText = "LUAR BIASA! 🎉";
+            document.getElementById('endTitle').className = "font-fredoka text-5xl mb-4 text-green-500 animate-bounce";
+            document.getElementById('endDesc').innerText = "Kamu berhasil menyusun angka 1 sampai 10!";
+            
+            // Maskot Senang Bintang SVG
+            document.getElementById('endMascot').innerHTML = `
+                <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-xl">
+                    <rect x="25" y="25" width="50" height="40" rx="10" fill="#F6E05E" stroke="#B7791F" stroke-width="3"/>
+                    <!-- Mata Bintang -->
+                    <text x="35" y="45" font-size="15">⭐</text>
+                    <text x="55" y="45" font-size="15">⭐</text>
+                    <!-- Mulut Tertawa -->
+                    <path d="M 35 55 Q 50 65 65 55" fill="none" stroke="#C53030" stroke-width="4" stroke-linecap="round"/>
+                </svg>`;
+        }
+
+        // Init Layout Setup
+        resizeCanvas();
+    </script>
+</body>
+</html>
